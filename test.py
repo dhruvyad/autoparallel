@@ -4,16 +4,19 @@ from parallel import Parallel
 
 # simulate network calls using dummy network
 class DummyNetwork:
-    def __init__(self, counter=0):
-        self.counter = counter
+    def __init__(self, data=0):
+        self.data = data
 
     def call(self):
         time.sleep(0.1)
-        return DummyNetwork(counter=self.counter + 1)
 
-    def get_counter(self):
+    def get_another_network_with_data(self, data: int):
         time.sleep(0.1)
-        return self.counter
+        return DummyNetwork(data)
+    
+    def get_data(self):
+        time.sleep(0.1)
+        return self.data
     
     def returnint(self, i):
         time.sleep(0.1)
@@ -41,12 +44,15 @@ class TestAutoParallel(unittest.TestCase):
             # TODO: make range(100) work, it doesn't work right now because
             # para.range(100) returns None
             for return_data in self.para.data_numbers:
-                output = self.para.dummy_network.returnint(return_data)
-                self.assertEqual(output, return_data)
+                main_output = self.para.dummy_network.returnint(return_data)
+                sub_network = self.para.dummy_network.get_another_network_with_data(return_data)
+                sub_network_output = self.para.sub_network.get_data()
+                self.assertEqual(main_output, return_data)
+                self.assertEqual(sub_network_output, return_data)
         start_time = time.time()
         foo()
         end_time = time.time()
-        self.assertLessEqual(end_time - start_time, 0.2)
+        self.assertLessEqual(end_time - start_time, 0.75)
 
 if __name__ == '__main__':
     unittest.main()

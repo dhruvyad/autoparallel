@@ -74,8 +74,6 @@ class Parallel:
 
     def auto(self, func):
         def wrapper(*args, **kwargs):
-            queue_stabilized_threshold = 3
-            queue_stabilized_counter = 0
             prev_func_queue, cur_func_queue = -1, len(self.func_calls)
             while True:
                 try:
@@ -83,9 +81,9 @@ class Parallel:
                     break
                 except Exception as e:
                     prev_func_queue, cur_func_queue = cur_func_queue, len(self.func_calls)
-                    queue_stabilized_counter += 1 if prev_func_queue == cur_func_queue else 0
-                    if queue_stabilized_threshold <= queue_stabilized_counter:
+                    if prev_func_queue == cur_func_queue:
                         self.execute()
+                        prev_func_queue, cur_func_queue = -1, len(self.func_calls)
         return wrapper
 
     def __getattr__(self, name):
@@ -93,7 +91,7 @@ class Parallel:
             new_call_path = self._call_path + ("." if self._call_path else "") + name
             obj = self._get_obj_from_attr(name)
             obj_hash = hash_object(obj)
-            if obj_hash not in Parallel.cached_attrs:
+            if obj_hash not in Parallel.cached_attrs and obj:
                 Parallel.cached_attrs[obj_hash] = Parallel(serial=self.serial, _call_path=new_call_path, _obj_reference=obj)
             return Parallel.cached_attrs[obj_hash]
         else:
