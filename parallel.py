@@ -8,21 +8,20 @@ from collections import defaultdict
 from functools import partial
 from multiprocessing.pool import ThreadPool
 
-def run_in_threads(funcs, args):
+def run_in_threads(funcs, args, kwargs):
     if not funcs:
         return []
-    pool = ThreadPool(processes=min(150, len(funcs)))
-    threads = []
-    for i, func in enumerate(funcs):
-        t = pool.apply_async(func, args[i])
-        threads.append(t)
-    results = [t.get() for t in threads]
+    with ThreadPool(processes=min(150, len(funcs))) as pool:
+        threads = []
+        for i, func in enumerate(funcs):
+            t = pool.apply_async(func, args=args[i], kwds=kwargs[i])
+            threads.append(t)
+        results = [t.get() for t in threads]
     return results
 
 def hash_object(obj):
     obj_bytes = pickle.dumps(obj)
     return hashlib.md5(obj_bytes).hexdigest()
-
 
 class Parallel:
     func_calls = defaultdict(dict)
@@ -42,16 +41,22 @@ class Parallel:
         self.iter_list = None
         self.iter = 0
 
+    @staticmethod
     def reset():
         Parallel.func_calls = defaultdict(dict)
 
     def execute(self):
         parallel_objects, arguments = zip(*Parallel.func_calls.values())
         funcs = [parallel_object._obj_reference for parallel_object in parallel_objects]
-        results = run_in_threads(funcs, [arg[0] for arg in arguments])
+        args_list = [arg[0] for arg in arguments]
+        kwargs_list = [arg[1] for arg in arguments]
+        results = run_in_threads(funcs, args_list, kwargs_list)
         for i, func in enumerate(funcs):
-            obj_call_hash = hash_object([func, arguments[i][0]])
-            Parallel.cached_calls[obj_call_hash] = results[i]
+            obj_call_hash = hash_object([func, args_list[i], kwargs_list[i]])
+            if func == range:  # range is a special case
+                Parallel.cached_calls[obj_call_hash] = Parallel(serial=self.serial, _obj_reference=results[i])
+            else:
+                Parallel.cached_calls[obj_call_hash] = results[i]
         Parallel.reset()
 
     def _get_obj_from_attr(self, attr):
@@ -99,7 +104,7 @@ class Parallel:
 
     def __call__(self, *args, **kwargs):
         if not self.serial:
-            obj_call_hash = hash_object([self._obj_reference, args])
+            obj_call_hash = hash_object([self._obj_reference, args, kwargs])
             if obj_call_hash in Parallel.cached_calls:
                 return Parallel.cached_calls[obj_call_hash]
             if obj_call_hash not in Parallel.func_calls:
@@ -114,4 +119,23 @@ class Parallel:
             self.iter = self.iter + 1
             yield self.iter_list[(self.iter - 1) % len(self.iter_list)]
 
-# TODO: override __eq__ etc to throw error whenever a parallel object is used anywhere for auto to work
+    def __eq__(self, other):
+        raise NotImplementedError("Comparison operations are not supported for Parallel objects.")
+
+    def __ne__(self, other):
+        raise NotImplementedError("Comparison operations are not supported for Parallel objects.")
+
+    def __lt__(self, other):
+        raise NotImplementedError("Comparison operations are not supported for Parallel objects.")
+
+    def __le__(self, other):
+        raise NotImplementedError("Comparison operations are not supported for Parallel objects.")
+
+    def __gt__(self, other):
+        raise NotImplementedError("Comparison operations are not supported for Parallel objects.")
+
+    def __ge__(self, other):
+        raise NotImplementedError("Comparison operations are not supported for Parallel objects.")
+
+    def __hash__(self):
+        raise NotImplementedError("Hashing is not supported for Parallel objects.")

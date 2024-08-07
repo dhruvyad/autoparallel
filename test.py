@@ -40,10 +40,7 @@ class TestAutoParallel(unittest.TestCase):
         @self.para.auto
         def foo():
             dummy_network = DummyNetwork()
-            data_numbers = range(100)
-            # TODO: make range(100) work, it doesn't work right now because
-            # para.range(100) returns None
-            for return_data in self.para.data_numbers:
+            for return_data in self.para.range(100):
                 main_output = self.para.dummy_network.returnint(return_data)
                 sub_network = self.para.dummy_network.get_another_network_with_data(return_data)
                 sub_network_output = self.para.sub_network.get_data()
